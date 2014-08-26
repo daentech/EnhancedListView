@@ -220,6 +220,11 @@ public class EnhancedListView extends ListView {
         public void discard() { }
 
     }
+    
+    public interface OnSwipeCallback {
+    	public void onSwipeBegin();
+    	public void onSwipeEnd();
+    }
 
     private class PendingDismissData implements Comparable<PendingDismissData> {
 
@@ -341,6 +346,7 @@ public class EnhancedListView extends ListView {
     private int mValidDelayedMsgId;
     private Handler mHideUndoHandler = new HideUndoPopupHandler();
     private Button mUndoButton;
+	private OnSwipeCallback mSwipeCallback;
     // END Swipe-To-Dismiss
 
     /**
@@ -542,6 +548,10 @@ public class EnhancedListView extends ListView {
         mSwipingLayout = swipingLayoutId;
         return this;
     }
+    
+    public void setSwipeCallback(OnSwipeCallback callback){
+    	mSwipeCallback = callback; 
+    }
 
     /**
      * Discard all stored undos and hide the undo popup dialog.
@@ -734,6 +744,7 @@ public class EnhancedListView extends ListView {
                 mSwipeDownView = null;
                 mSwipeDownChild = null;
                 mDownPosition = AbsListView.INVALID_POSITION;
+                if(mSwipeCallback != null) mSwipeCallback.onSwipeEnd();
                 mSwiping = false;
                 break;
             }
@@ -757,7 +768,8 @@ public class EnhancedListView extends ListView {
                     if (Math.abs(deltaX) > mSlop) {
                         mSwiping = true;
                         requestDisallowInterceptTouchEvent(true);
-
+                        if(mSwipeCallback != null) mSwipeCallback.onSwipeBegin();
+                        
                         // Cancel ListView's touch (un-highlighting the item)
                         MotionEvent cancelEvent = MotionEvent.obtain(ev);
                         cancelEvent.setAction(MotionEvent.ACTION_CANCEL

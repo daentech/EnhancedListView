@@ -1,23 +1,23 @@
-apply plugin: 'android-library'
+apply plugin: 'com.android.library'
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    compile 'com.android.support:support-v4:19.0.+'
+    compile 'com.android.support:support-v4:20.0.+'
     compile 'com.nineoldandroids:library:2.4.0'
 }
 
 android {
-    compileSdkVersion 19
-    buildToolsVersion "19.1"
+    buildToolsVersion '20.0.0'
+    compileSdkVersion 20
 
     defaultConfig {
         minSdkVersion 8
-        targetSdkVersion 19
-        versionName "0.3.4"
-        versionCode 9
+        targetSdkVersion 20
+        versionName "0.3.5-SNAPSHOT"
+        versionCode 10
     }
 
 	lintOptions {
@@ -29,69 +29,102 @@ apply plugin: 'maven'
 apply plugin: 'signing'
 
 version = android.defaultConfig.versionName
-group = "de.timroes.android"
+group = "net.goldenspiral.timroes"
+ext.isReleaseBuild = !version.endsWith("-SNAPSHOT")
 
-if(project.hasProperty("EnhancedListView.properties") && new File(project.property("EnhancedListView.properties")).exists()) {
+def repositoryUrl
+if (isReleaseBuild) {
+    println 'RELEASE BUILD'
+    repositoryUrl = hasProperty('RELEASE_REPOSITORY_URL') ? RELEASE_REPOSITORY_URL : "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+} else {
+    println 'SNAPSHOT BUILD'
+    repositoryUrl = hasProperty('SNAPSHOT_REPOSITORY_URL') ? SNAPSHOT_REPOSITORY_URL : "https://oss.sonatype.org/content/repositories/snapshots/"
 
-    Properties props = new Properties()
-    props.load(new FileInputStream(file(project.property("EnhancedListView.properties"))))
+}
 
-    gradle.taskGraph.whenReady { taskGraph ->
-        if (taskGraph.allTasks.any { it instanceof Sign }) {
-            allprojects { ext."signing.keyId" = props['signing.keyId'] }
-            allprojects { ext."signing.secretKeyRingFile" = props['signing.secretKeyRingFile'] }
-            allprojects { ext."signing.password" = props['signing.password'] }
+def getRepositoryUsername() {
+    return hasProperty('nexusUsername') ? nexusUsername : ""
+}
+
+def getRepositoryPassword() {
+    return hasProperty('nexusPassword') ? nexusPassword : ""
+}
+
+
+afterEvaluate { project ->
+    uploadArchives {
+        configuration = configurations.archives
+        repositories {
+            mavenDeployer {
+                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+                repository(url: repositoryUrl) {
+                    authentication(userName: getRepositoryUsername(), password: getRepositoryPassword())
+                }
+
+                pom.project {
+                    name 'EnhancedListView'
+                    packaging 'aar'
+                    description 'ListView with enhanced features for Android'
+                    url 'https://github.com/goldenspiral/EnhancedListView'
+
+                    scm {
+                        url 'scm:git@github.com:timroes/EnhancedListView.git'
+                        connection 'scm:git@github.com:goldenspiral/EnhancedListView.git'
+                        developerConnection  'scm:git@github.com:goldenspiral/EnhancedListView.git'
+                    }
+
+                    licenses {
+                        license {
+                            name 'The Apache Software License, Version 2.0'
+                            url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                            distribution 'repo'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id 'timroes'
+                            name 'Tim Roes'
+                            email 'mail@timroes.de'
+                        }
+                        developer {
+                            id 'jcogilvie'
+                            name 'Jonathan Ogilvie'
+                            email 'jcogilvie@goldenspiral.net'
+                        }
+                    }
+                }
+            }
         }
     }
 
     signing {
-        required { has("release") && gradle.taskGraph.hasTask("uploadArchives") }
+        required { isReleaseBuild && gradle.taskGraph.hasTask("uploadArchives") }
         sign configurations.archives
     }
 
-    uploadArchives {
+//    task androidJavadocs(type: Javadoc) {
+//        source = android.sourceSets.main.allJava
+//        classpath += project.files(android.plugin.getRuntimeJarList().join(File.pathSeparator))
+//    }
+//
+//    task androidJavadocsJar(type: Jar, dependsOn: androidJavadocs) {
+//        classifier = 'javadoc'
+//        //basename = artifact_id
+//        from androidJavadocs.destinationDir
+//    }
+//
+//    task androidSourcesJar(type: Jar) {
+//        classifier = 'sources'
+//        //basename = artifact_id
+//        from android.sourceSets.main.allSource
+//    }
 
-        configuration = configurations.archives
-        repositories.mavenDeployer {
-
-            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
-
-            repository(url: props['sonatypeRepo']) {
-                authentication(userName: props['sonatypeUsername'], password: props['sonatypePassword'])
-            }
-
-            pom.project {
-
-                name 'EnhancedListView'
-                packaging 'aar'
-                description 'ListView with enhanced features for Android'
-                url 'https://github.com/timroes/EnhancedListView'
-
-                scm {
-                    url 'scm:git@github.com:timroes/EnhancedListView.git'
-                    connection 'scm:git@github.com:timroes/EnhancedListView.git'
-                    developerConnection  'scm:git@github.com:timroes/EnhancedListView.git'
-                }
-
-                licenses {
-                    license {
-                        name 'The Apache Software License, Version 2.0'
-                        url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
-                        distribution 'repo'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id 'timroes'
-                        name 'Tim Roes'
-                        email 'mail@timroes.de'
-                    }
-                }
-
-            }
-
-        }
+    artifacts {
+        //archives packageReleaseJar
+//        archives androidSourcesJar
+//        archives androidJavadocsJar
     }
-
 }
+
